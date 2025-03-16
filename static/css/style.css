@@ -170,11 +170,23 @@ footer {
 }
 
 .face-btn.active {
-    background-color: #673ab7;
+    background-color: #ff9800;
+    color: white;
+}
+
+.keyboard-btn {
+    background-color: #9c27b0;
+    color: white;
+}
+
+.keyboard-btn.active {
+    background-color: #7b1fa2;
+    color: white;
 }
 
 .snake-btn {
-    background-color: #ff9800;
+    background-color: #4caf50;
+    color: white;
     text-decoration: none;
     display: inline-block;
     text-align: center;
@@ -251,4 +263,31 @@ footer {
 
 .expression-guide {
     margin-top: 20px;
+}
+
+.expression-guide ul li {
+    margin-bottom: 8px;
+}
+
+.shortcut-guide {
+    margin-top: 20px;
+    padding: 15px;
+    background-color: #f3e5f5;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.shortcut-guide h3 {
+    color: #7b1fa2;
+    margin-top: 0;
+    margin-bottom: 10px;
+}
+
+.shortcut-guide ul {
+    list-style-type: none;
+    padding-left: 0;
+}
+
+.shortcut-guide ul li {
+    margin-bottom: 8px;
 } 

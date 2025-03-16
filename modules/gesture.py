@@ -49,13 +49,21 @@ class GestureRecognizer:
                 "palm": "手掌",
                 "thumb_up": "点赞",
                 "peace": "剪刀手",
-                "pointing": "指向"
+                "pointing": "指向",
+                "zoom_in": "放大",
+                "zoom_out": "缩小"
             }
             
             # 特效相关
             self.matrix_effect_enabled = False
             self.matrix_chars = []
             self.init_matrix_effect()
+            
+            # 双手手势相关
+            self.prev_hands_distance = None
+            self.distance_threshold = 0.05  # 距离变化阈值
+            self.zoom_cooldown = 0
+            self.zoom_cooldown_frames = 10  # 缩放手势冷却帧数
             
             logger.info("手势识别模块初始化完成")
         except Exception as e:
@@ -176,8 +184,75 @@ class GestureRecognizer:
             finger_direction = None
             direction_name = None
             
+            # 缩放手势冷却时间减少
+            if hasattr(self, 'zoom_cooldown') and self.zoom_cooldown > 0:
+                self.zoom_cooldown -= 1
+            
             # 如果检测到手
             if results.multi_hand_landmarks:
+                # 检测到的手的数量
+                num_hands = len(results.multi_hand_landmarks)
+                
+                # 如果检测到两只手，处理双手手势
+                if num_hands == 2:
+                    # 获取两只手的中心点
+                    hand1_landmarks = results.multi_hand_landmarks[0].landmark
+                    hand2_landmarks = results.multi_hand_landmarks[1].landmark
+                    
+                    # 计算两手中心点
+                    hand1_center_x = sum(landmark.x for landmark in hand1_landmarks) / len(hand1_landmarks)
+                    hand1_center_y = sum(landmark.y for landmark in hand1_landmarks) / len(hand1_landmarks)
+                    
+                    hand2_center_x = sum(landmark.x for landmark in hand2_landmarks) / len(hand2_landmarks)
+                    hand2_center_y = sum(landmark.y for landmark in hand2_landmarks) / len(hand2_landmarks)
+                    
+                    # 计算两手之间的距离
+                    current_distance = np.sqrt((hand1_center_x - hand2_center_x)**2 + (hand1_center_y - hand2_center_y)**2)
+                    
+                    # 在图像上绘制两手之间的连线
+                    h, w, c = annotated_frame.shape
+                    hand1_center = (int(hand1_center_x * w), int(hand1_center_y * h))
+                    hand2_center = (int(hand2_center_x * w), int(hand2_center_y * h))
+                    cv2.line(annotated_frame, hand1_center, hand2_center, (255, 0, 255), 2)
+                    
+                    # 在连线中间显示距离
+                    mid_point = ((hand1_center[0] + hand2_center[0]) // 2, (hand1_center[1] + hand2_center[1]) // 2)
+                    cv2.putText(
+                        annotated_frame,
+                        f"距离: {current_distance:.2f}",
+                        mid_point,
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        0.7,
+                        (255, 0, 255),
+                        2
+                    )
+                    
+                    # 如果有前一帧的距离记录，比较距离变化
+                    if hasattr(self, 'prev_hands_distance') and self.prev_hands_distance is not None and self.zoom_cooldown == 0:
+                        # 计算距离变化
+                        distance_change = current_distance - self.prev_hands_distance
+                        
+                        # 如果距离变化超过阈值，识别为缩放手势
+                        if abs(distance_change) > self.distance_threshold:
+                            if distance_change > 0:
+                                # 两手分开，放大
+                                detected_gestures.append("zoom_in")
+                                logger.info(f"检测到放大手势，距离变化: {distance_change:.2f}")
+                            else:
+                                # 两手靠近，缩小
+                                detected_gestures.append("zoom_out")
+                                logger.info(f"检测到缩小手势，距离变化: {distance_change:.2f}")
+                            
+                            # 设置缩放手势冷却时间
+                            self.zoom_cooldown = self.zoom_cooldown_frames
+                    
+                    # 更新前一帧的距离记录
+                    self.prev_hands_distance = current_distance
+                else:
+                    # 如果只检测到一只手，重置前一帧的距离记录
+                    self.prev_hands_distance = None
+                
+                # 处理每只手的单手手势
                 for hand_landmarks in results.multi_hand_landmarks:
                     # 绘制手部关键点和连接线
                     self.mp_drawing.draw_landmarks(
@@ -226,8 +301,10 @@ class GestureRecognizer:
                         2
                     )
                     
-                    if gesture:
-                        detected_gestures.append(gesture)
+                    if gesture and gesture not in ["zoom_in", "zoom_out"]:
+                        # 避免重复添加缩放手势
+                        if gesture not in detected_gestures:
+                            detected_gestures.append(gesture)
                         
                         # 在图像上显示手势名称
                         cx = int(sum(landmark.x for landmark in landmarks) / len(landmarks) * w)

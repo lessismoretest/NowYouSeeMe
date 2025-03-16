@@ -7,6 +7,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const gestureResult = document.getElementById('gesture-result');
     const effectBtn = document.getElementById('effect-btn');
     const faceBtn = document.getElementById('face-btn');
+    const keyboardBtn = document.getElementById('keyboard-btn');
     
     // 获取统计按钮
     const refreshStatsBtn = document.getElementById('refresh-stats-btn');
@@ -56,6 +57,13 @@ document.addEventListener('DOMContentLoaded', function() {
             resultText += '手势: 未检测到';
         }
         
+        // 处理食指方向
+        if (data.direction) {
+            resultText += '<br>食指方向: ' + data.direction;
+        } else {
+            resultText += '<br>食指方向: 未检测到';
+        }
+        
         // 处理面部表情
         if (data.expressions && data.expressions.length > 0) {
             const expressionNames = data.expressions.map(expression => getExpressionName(expression));
@@ -88,6 +96,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     let effectEnabled = false;
     let faceRecognitionEnabled = false;
+    let keyboardShortcutsEnabled = false;
     
     // 特效按钮点击事件
     effectBtn.addEventListener('click', function() {
@@ -123,6 +132,23 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
     
+    // 键盘快捷键按钮点击事件
+    keyboardBtn.addEventListener('click', function() {
+        socket.emit('toggle_keyboard_shortcuts', {}, function(response) {
+            console.log('收到切换键盘快捷键响应:', response);
+            if (response && response.status === 'success') {
+                keyboardShortcutsEnabled = response.enabled;
+                if (keyboardShortcutsEnabled) {
+                    keyboardBtn.textContent = '关闭手势快捷键';
+                    keyboardBtn.classList.add('active');
+                } else {
+                    keyboardBtn.textContent = '开启手势快捷键';
+                    keyboardBtn.classList.remove('active');
+                }
+            }
+        });
+    });
+    
     // 启动摄像头按钮点击事件
     startBtn.addEventListener('click', function() {
         console.log('点击启动摄像头按钮');
@@ -143,6 +169,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 stopBtn.disabled = false;
                 effectBtn.disabled = false;  // 启用特效按钮
                 faceBtn.disabled = false;    // 启用面部识别按钮
+                keyboardBtn.disabled = false;  // 启用键盘快捷键按钮
             } else {
                 alert('启动摄像头失败: ' + (response?.message || '未知错误'));
                 loadingIndicator.style.display = 'none';
@@ -173,6 +200,10 @@ document.addEventListener('DOMContentLoaded', function() {
         faceBtn.textContent = '开启面部识别';
         faceBtn.classList.remove('active');
         faceRecognitionEnabled = false;
+        keyboardBtn.disabled = true;  // 禁用键盘快捷键按钮
+        keyboardBtn.textContent = '开启手势快捷键';
+        keyboardBtn.classList.remove('active');
+        keyboardShortcutsEnabled = false;
         gestureResult.innerHTML = '等待识别...';
         gestureResult.style.color = '#333';
     }
@@ -274,6 +305,8 @@ document.addEventListener('DOMContentLoaded', function() {
             case 'thumb_up': return '点赞';
             case 'peace': return '剪刀手';
             case 'pointing': return '指向';
+            case 'zoom_in': return '放大';
+            case 'zoom_out': return '缩小';
             default: return gesture;
         }
     }

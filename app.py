@@ -13,6 +13,7 @@ from modules.face import FaceRecognizer
 import time
 from modules.stats import StatsTracker
 from modules.snake_game import SnakeGame
+from modules.keyboard_controller import KeyboardController
 
 # 加载环境变量
 load_dotenv()
@@ -47,8 +48,12 @@ gesture_recognizer = GestureRecognizer()
 face_recognizer = FaceRecognizer()
 stats_tracker = StatsTracker()
 
+# 初始化键盘控制器
+keyboard_controller = KeyboardController()
+
 # 在app.py顶部添加全局变量
 face_recognition_enabled = False
+keyboard_shortcuts_enabled = False
 
 # 初始化贪吃蛇游戏
 snake_game = SnakeGame()
@@ -116,6 +121,14 @@ def handle_toggle_face_recognition(data=None):
     logger.info(f'面部识别状态: {"开启" if face_recognition_enabled else "关闭"}')
     return {'status': 'success', 'enabled': face_recognition_enabled}
 
+@socketio.on('toggle_keyboard_shortcuts')
+def handle_toggle_keyboard_shortcuts(data=None):
+    """切换键盘快捷键"""
+    global keyboard_shortcuts_enabled
+    keyboard_shortcuts_enabled = not keyboard_shortcuts_enabled
+    logger.info(f'键盘快捷键状态: {"开启" if keyboard_shortcuts_enabled else "关闭"}')
+    return {'status': 'success', 'enabled': keyboard_shortcuts_enabled}
+
 def process_frame():
     """处理视频帧并发送到客户端"""
     logger.info('视频处理线程已启动')
@@ -152,7 +165,7 @@ def process_frame():
             if frame is not None:
                 try:
                     # 处理帧并识别手势
-                    processed_frame, gestures = gesture_recognizer.process_frame(frame)
+                    processed_frame, gestures, finger_direction, direction_name = gesture_recognizer.process_frame(frame)
                     
                     # 如果启用了面部识别，处理面部表情
                     expressions = []
@@ -164,6 +177,11 @@ def process_frame():
                         stats_tracker.record_gestures(gestures)
                     if expressions:
                         stats_tracker.record_expressions(expressions)
+                    
+                    # 如果启用了键盘快捷键，处理手势快捷键
+                    if keyboard_shortcuts_enabled and gestures:
+                        for gesture in gestures:
+                            keyboard_controller.handle_gesture(gesture)
                     
                     if processed_frame is not None:
                         # 将帧编码为JPEG
@@ -181,7 +199,8 @@ def process_frame():
                             'image': f'data:image/jpeg;base64,{frame_base64}',
                             'gestures': gestures,
                             'expressions': expressions,
-                            'stats': current_stats
+                            'stats': current_stats,
+                            'direction': direction_name
                         })
                         
                         # 重置错误计数
@@ -200,7 +219,8 @@ def process_frame():
                         socketio.emit('frame', {
                             'image': f'data:image/jpeg;base64,{frame_base64}',
                             'gestures': [],
-                            'expressions': []
+                            'expressions': [],
+                            'direction': None
                         })
                         
                         logger.warning('处理视频帧失败，发送原始帧')
@@ -215,7 +235,8 @@ def process_frame():
                         socketio.emit('frame', {
                             'image': f'data:image/jpeg;base64,{frame_base64}',
                             'gestures': [],
-                            'expressions': []
+                            'expressions': [],
+                            'direction': None
                         })
                         logger.warning('发送原始帧')
                     except Exception as frame_error:
