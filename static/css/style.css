@@ -1,0 +1,254 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Microsoft YaHei', Arial, sans-serif;
+    background-color: #f5f5f5;
+    color: #333;
+    line-height: 1.6;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+header {
+    text-align: center;
+    margin-bottom: 30px;
+    padding: 20px 0;
+    background-color: #1e88e5;
+    color: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+h1 {
+    font-size: 2.2rem;
+}
+
+main {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 30px;
+}
+
+.video-container {
+    flex: 1;
+    min-width: 300px;
+}
+
+.video-wrapper {
+    position: relative;
+    width: 100%;
+    background-color: #000;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    aspect-ratio: 4/3;
+}
+
+#video-feed {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: none;
+}
+
+#loading-indicator {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: white;
+    font-size: 1.2rem;
+}
+
+.controls {
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    margin-top: 20px;
+}
+
+.btn {
+    padding: 10px 20px;
+    font-size: 1rem;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    background-color: #1e88e5;
+    color: white;
+}
+
+.btn:hover {
+    background-color: #1565c0;
+}
+
+.btn:disabled {
+    background-color: #b0bec5;
+    cursor: not-allowed;
+}
+
+.info-panel {
+    flex: 1;
+    min-width: 300px;
+    background-color: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+h2 {
+    margin-bottom: 15px;
+    color: #1e88e5;
+    border-bottom: 2px solid #e0e0e0;
+    padding-bottom: 10px;
+}
+
+#gesture-result {
+    font-size: 1.5rem;
+    margin-bottom: 20px;
+    min-height: 60px;
+    padding: 15px;
+    background-color: #f5f5f5;
+    border-radius: 4px;
+    text-align: center;
+}
+
+.gesture-guide {
+    margin-top: 30px;
+}
+
+h3 {
+    margin-bottom: 10px;
+    color: #1e88e5;
+}
+
+ul {
+    list-style-position: inside;
+    padding-left: 10px;
+}
+
+li {
+    margin-bottom: 8px;
+}
+
+footer {
+    margin-top: 40px;
+    text-align: center;
+    color: #757575;
+    padding: 20px 0;
+    border-top: 1px solid #e0e0e0;
+}
+
+@media (max-width: 768px) {
+    main {
+        flex-direction: column;
+    }
+    
+    .video-container, .info-panel {
+        width: 100%;
+    }
+}
+
+.effect-btn {
+    background-color: #4caf50;
+}
+
+.effect-btn.active {
+    background-color: #f44336;
+}
+
+.face-btn {
+    background-color: #9c27b0;
+}
+
+.face-btn.active {
+    background-color: #673ab7;
+}
+
+.snake-btn {
+    background-color: #ff9800;
+    text-decoration: none;
+    display: inline-block;
+    text-align: center;
+}
+
+.snake-btn:hover {
+    background-color: #f57c00;
+}
+
+.stats-panel {
+    margin-top: 20px;
+    padding: 15px;
+    background-color: #f9f9f9;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.stats-controls {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 15px;
+}
+
+.stats-btn {
+    padding: 8px 15px;
+    font-size: 0.9rem;
+    background-color: #2196f3;
+}
+
+.stats-container {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.stats-section {
+    margin-bottom: 10px;
+}
+
+.stats-section h4 {
+    margin-bottom: 8px;
+    color: #333;
+    border-bottom: 1px solid #ddd;
+    padding-bottom: 5px;
+}
+
+.stats-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+}
+
+.stats-table th, .stats-table td {
+    padding: 8px;
+    text-align: left;
+    border-bottom: 1px solid #ddd;
+}
+
+.stats-table th {
+    background-color: #f2f2f2;
+    font-weight: bold;
+}
+
+.stats-table tr:hover {
+    background-color: #f5f5f5;
+}
+
+#session-duration {
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: #2196f3;
+    margin: 10px 0;
+}
+
+.expression-guide {
+    margin-top: 20px;
+} 

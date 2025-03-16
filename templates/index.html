@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>手势识别系统</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://cdn.socket.io/4.6.0/socket.io.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>手势识别系统</h1>
+        </header>
+        
+        <main>
+            <div class="video-container">
+                <div class="video-wrapper">
+                    <img id="video-feed" src="" alt="视频流">
+                    <div id="loading-indicator">加载中...</div>
+                </div>
+                
+                <div class="controls">
+                    <button id="start-btn" class="btn">启动摄像头</button>
+                    <button id="stop-btn" class="btn" disabled>停止摄像头</button>
+                    <button id="effect-btn" class="btn effect-btn" disabled>开启黑客帝国特效</button>
+                    <button id="face-btn" class="btn face-btn" disabled>开启面部识别</button>
+                    <a href="/snake" class="btn snake-btn">贪吃蛇游戏</a>
+                </div>
+            </div>
+            
+            <div class="info-panel">
+                <h2>识别结果</h2>
+                <div id="gesture-result">等待识别...</div>
+                
+                <div class="stats-panel">
+                    <h3>统计数据</h3>
+                    <div class="stats-controls">
+                        <button id="refresh-stats-btn" class="btn stats-btn">刷新统计</button>
+                        <button id="reset-stats-btn" class="btn stats-btn">重置统计</button>
+                        <button id="save-stats-btn" class="btn stats-btn">保存统计</button>
+                    </div>
+                    <div class="stats-container">
+                        <div class="stats-section">
+                            <h4>会话时长</h4>
+                            <div id="session-duration">0分钟</div>
+                        </div>
+                        <div class="stats-section">
+                            <h4>手势统计</h4>
+                            <table id="gesture-stats" class="stats-table">
+                                <thead>
+                                    <tr>
+                                        <th>手势</th>
+                                        <th>次数</th>
+                                        <th>频率(次/分钟)</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <!-- 动态填充 -->
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="stats-section">
+                            <h4>表情统计</h4>
+                            <table id="expression-stats" class="stats-table">
+                                <thead>
+                                    <tr>
+                                        <th>表情</th>
+                                        <th>次数</th>
+                                        <th>频率(次/分钟)</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <!-- 动态填充 -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="gesture-guide">
+                    <h3>支持的手势</h3>
+                    <ul>
+                        <li><strong>握拳</strong>: 所有手指弯曲</li>
+                        <li><strong>手掌</strong>: 所有手指伸展</li>
+                        <li><strong>点赞</strong>: 只有拇指伸展</li>
+                        <li><strong>剪刀手</strong>: 食指和中指伸展</li>
+                        <li><strong>指向</strong>: 只有食指伸展</li>
+                    </ul>
+                </div>
+                
+                <div class="expression-guide">
+                    <h3>支持的表情</h3>
+                    <ul>
+                        <li><strong>微笑</strong>: 嘴角上扬</li>
+                        <li><strong>眨眼</strong>: 双眼闭合</li>
+                    </ul>
+                </div>
+            </div>
+        </main>
+        
+        <footer>
+            <p>© 2023 手势识别系统 | 基于OpenCV和MediaPipe</p>
+        </footer>
+    </div>
+    
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html> 
