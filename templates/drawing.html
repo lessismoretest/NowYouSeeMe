@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>手势绘画 - 手势识别系统</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://cdn.socket.io/4.6.0/socket.io.min.js"></script>
+    <style>
+        .drawing-container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            width: 100%;
+        }
+        
+        .canvas-wrapper {
+            position: relative;
+            width: 100%;
+            background-color: #fff;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            aspect-ratio: 4/3;
+        }
+        
+        .drawing-controls {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        
+        .color-picker {
+            display: flex;
+            gap: 5px;
+            margin-top: 10px;
+            justify-content: center;
+        }
+        
+        .color-option {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 2px solid #ddd;
+            transition: transform 0.2s;
+        }
+        
+        .color-option:hover {
+            transform: scale(1.1);
+        }
+        
+        .color-option.selected {
+            border: 2px solid #333;
+            transform: scale(1.1);
+        }
+        
+        .size-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 10px;
+            justify-content: center;
+        }
+        
+        .size-label {
+            font-weight: bold;
+            min-width: 80px;
+        }
+        
+        .finger-selector {
+            margin-top: 15px;
+            padding: 10px;
+            background-color: #f5f5f5;
+            border-radius: 8px;
+        }
+        
+        .finger-selector h3 {
+            margin-bottom: 10px;
+            text-align: center;
+        }
+        
+        .finger-options {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .finger-option {
+            padding: 8px 15px;
+            background-color: #e0e0e0;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .finger-option:hover {
+            background-color: #d0d0d0;
+        }
+        
+        .finger-option.selected {
+            background-color: #2196f3;
+            color: white;
+        }
+        
+        .drawing-status {
+            text-align: center;
+            margin-top: 10px;
+            font-style: italic;
+            color: #666;
+        }
+        
+        .camera-preview {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            width: 160px;
+            height: 120px;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 2px solid #333;
+            z-index: 10;
+        }
+        
+        .camera-preview img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .btn-eraser {
+            background-color: #f44336;
+        }
+        
+        .btn-eraser.active {
+            background-color: #d32f2f;
+        }
+        
+        .btn-clear {
+            background-color: #ff9800;
+        }
+        
+        .btn-undo {
+            background-color: #9c27b0;
+        }
+        
+        .btn-save {
+            background-color: #4CAF50;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>手势绘画</h1>
+            <p>使用手指在空中绘画</p>
+        </header>
+        
+        <main>
+            <div class="global-actions">
+                <a href="/" class="btn">返回主页</a>
+            </div>
+            
+            <div class="drawing-container">
+                <div class="canvas-wrapper">
+                    <img id="canvas-feed" src="" alt="绘画画布">
+                    <div id="loading-indicator">加载中...</div>
+                    
+                    <div class="camera-preview">
+                        <img id="camera-feed" src="" alt="摄像头预览">
+                    </div>
+                </div>
+                
+                <div class="drawing-controls">
+                    <button id="start-btn" class="btn">启动摄像头</button>
+                    <button id="stop-btn" class="btn" disabled>停止摄像头</button>
+                    <button id="eraser-btn" class="btn btn-eraser" disabled>橡皮擦</button>
+                    <button id="clear-btn" class="btn btn-clear" disabled>清空画布</button>
+                    <button id="undo-btn" class="btn btn-undo" disabled>撤销</button>
+                    <button id="save-btn" class="btn btn-save" disabled>保存图片</button>
+                </div>
+                
+                <div class="color-picker">
+                    <div class="color-option selected" style="background-color: #000000;" data-color="0,0,0"></div>
+                    <div class="color-option" style="background-color: #ff0000;" data-color="255,0,0"></div>
+                    <div class="color-option" style="background-color: #00ff00;" data-color="0,255,0"></div>
+                    <div class="color-option" style="background-color: #0000ff;" data-color="0,0,255"></div>
+                    <div class="color-option" style="background-color: #ffff00;" data-color="255,255,0"></div>
+                    <div class="color-option" style="background-color: #ff00ff;" data-color="255,0,255"></div>
+                    <div class="color-option" style="background-color: #00ffff;" data-color="0,255,255"></div>
+                    <div class="color-option" style="background-color: #ff8800;" data-color="255,136,0"></div>
+                    <div class="color-option" style="background-color: #8800ff;" data-color="136,0,255"></div>
+                </div>
+                
+                <div class="size-controls">
+                    <div class="size-label">画笔大小:</div>
+                    <input type="range" id="brush-size" min="1" max="20" value="5" class="size-slider">
+                    <span id="brush-size-value">5</span>
+                </div>
+                
+                <div class="size-controls" id="eraser-size-controls" style="display: none;">
+                    <div class="size-label">橡皮大小:</div>
+                    <input type="range" id="eraser-size" min="5" max="50" value="20" class="size-slider">
+                    <span id="eraser-size-value">20</span>
+                </div>
+                
+                <div class="finger-selector">
+                    <h3>选择绘画手指</h3>
+                    <div class="finger-options">
+                        <div class="finger-option" data-finger="thumb">拇指</div>
+                        <div class="finger-option selected" data-finger="index">食指</div>
+                        <div class="finger-option" data-finger="middle">中指</div>
+                        <div class="finger-option" data-finger="ring">无名指</div>
+                        <div class="finger-option" data-finger="pinky">小指</div>
+                    </div>
+                </div>
+                
+                <div class="drawing-status" id="drawing-status">
+                    准备就绪，请启动摄像头开始绘画
+                </div>
+            </div>
+        </main>
+        
+        <footer>
+            <p>© 2023 手势识别系统 | 基于OpenCV和MediaPipe</p>
+        </footer>
+    </div>
+    
+    <script>
+        // 全局变量
+        let socket;
+        let isConnected = false;
+        let isDrawing = false;
+        let eraserMode = false;
+        
+        // 页面加载完成后执行
+        document.addEventListener('DOMContentLoaded', function() {
+            // 初始化Socket.IO连接
+            initSocketConnection();
+            
+            // 绑定按钮事件
+            document.getElementById('start-btn').addEventListener('click', startCamera);
+            document.getElementById('stop-btn').addEventListener('click', stopCamera);
+            document.getElementById('eraser-btn').addEventListener('click', toggleEraser);
+            document.getElementById('clear-btn').addEventListener('click', clearCanvas);
+            document.getElementById('undo-btn').addEventListener('click', undoDrawing);
+            document.getElementById('save-btn').addEventListener('click', saveDrawing);
+            
+            // 绑定颜色选择事件
+            const colorOptions = document.querySelectorAll('.color-option');
+            colorOptions.forEach(option => {
+                option.addEventListener('click', function() {
+                    // 移除其他颜色的选中状态
+                    colorOptions.forEach(opt => opt.classList.remove('selected'));
+                    // 添加当前颜色的选中状态
+                    this.classList.add('selected');
+                    // 设置颜色
+                    const color = this.getAttribute('data-color').split(',');
+                    setColor(parseInt(color[0]), parseInt(color[1]), parseInt(color[2]));
+                    // 如果在橡皮擦模式，切换回绘画模式
+                    if (eraserMode) {
+                        toggleEraser();
+                    }
+                });
+            });
+            
+            // 绑定画笔大小滑块事件
+            const brushSizeSlider = document.getElementById('brush-size');
+            const brushSizeValue = document.getElementById('brush-size-value');
+            brushSizeSlider.addEventListener('input', function() {
+                const size = parseInt(this.value);
+                brushSizeValue.textContent = size;
+                setBrushSize(size);
+            });
+            
+            // 绑定橡皮擦大小滑块事件
+            const eraserSizeSlider = document.getElementById('eraser-size');
+            const eraserSizeValue = document.getElementById('eraser-size-value');
+            eraserSizeSlider.addEventListener('input', function() {
+                const size = parseInt(this.value);
+                eraserSizeValue.textContent = size;
+                setEraserSize(size);
+            });
+            
+            // 绑定手指选择事件
+            const fingerOptions = document.querySelectorAll('.finger-option');
+            fingerOptions.forEach(option => {
+                option.addEventListener('click', function() {
+                    // 移除其他手指的选中状态
+                    fingerOptions.forEach(opt => opt.classList.remove('selected'));
+                    // 添加当前手指的选中状态
+                    this.classList.add('selected');
+                    // 设置绘画手指
+                    const finger = this.getAttribute('data-finger');
+                    setDrawingFinger(finger);
+                });
+            });
+        });
+        
+        // 初始化Socket.IO连接
+        function initSocketConnection() {
+            socket = io();
+            
+            // 连接成功
+            socket.on('connect', function() {
+                console.log('已连接到服务器');
+                isConnected = true;
+            });
+            
+            // 连接断开
+            socket.on('disconnect', function() {
+                console.log('与服务器断开连接');
+                isConnected = false;
+                updateStatus('与服务器断开连接，请刷新页面重试');
+            });
+            
+            // 接收绘画帧
+            socket.on('drawing_frame', function(data) {
+                // 更新画布
+                document.getElementById('canvas-feed').src = data.canvas_image;
+                document.getElementById('canvas-feed').style.display = 'block';
+                
+                // 更新摄像头预览
+                if (data.camera_image) {
+                    document.getElementById('camera-feed').src = data.camera_image;
+                }
+                
+                // 更新绘画状态
+                isDrawing = data.is_drawing;
+                updateStatus(isDrawing ? '正在绘画...' : '手指就绪，分开食指和中指开始绘画');
+                
+                // 隐藏加载指示器
+                document.getElementById('loading-indicator').style.display = 'none';
+            });
+            
+            // 摄像头错误
+            socket.on('camera_error', function(data) {
+                console.error('摄像头错误:', data.message);
+                updateStatus('摄像头错误: ' + data.message);
+                stopCamera();
+            });
+        }
+        
+        // 启动摄像头
+        function startCamera() {
+            if (!isConnected) {
+                alert('未连接到服务器，请刷新页面重试');
+                return;
+            }
+            
+            // 显示加载指示器
+            document.getElementById('loading-indicator').style.display = 'block';
+            document.getElementById('loading-indicator').textContent = '正在启动摄像头...';
+            
+            // 发送启动摄像头请求
+            socket.emit('start_camera', {}, function(response) {
+                if (response.status === 'success') {
+                    console.log('摄像头已启动');
+                    
+                    // 请求绘画帧
+                    socket.emit('request_drawing_frames');
+                    
+                    // 更新按钮状态
+                    document.getElementById('start-btn').disabled = true;
+                    document.getElementById('stop-btn').disabled = false;
+                    document.getElementById('eraser-btn').disabled = false;
+                    document.getElementById('clear-btn').disabled = false;
+                    document.getElementById('undo-btn').disabled = false;
+                    document.getElementById('save-btn').disabled = false;
+                    
+                    updateStatus('摄像头已启动，分开食指和中指开始绘画');
+                } else {
+                    console.error('启动摄像头失败:', response.message);
+                    updateStatus('启动摄像头失败: ' + response.message);
+                    document.getElementById('loading-indicator').style.display = 'none';
+                }
+            });
+        }
+        
+        // 停止摄像头
+        function stopCamera() {
+            if (!isConnected) {
+                return;
+            }
+            
+            // 发送停止摄像头请求
+            socket.emit('stop_camera', {}, function(response) {
+                if (response.status === 'success') {
+                    console.log('摄像头已停止');
+                    
+                    // 更新按钮状态
+                    document.getElementById('start-btn').disabled = false;
+                    document.getElementById('stop-btn').disabled = true;
+                    document.getElementById('eraser-btn').disabled = true;
+                    document.getElementById('clear-btn').disabled = true;
+                    document.getElementById('undo-btn').disabled = true;
+                    document.getElementById('save-btn').disabled = true;
+                    
+                    updateStatus('摄像头已停止，请启动摄像头开始绘画');
+                }
+            });
+        }
+        
+        // 切换橡皮擦模式
+        function toggleEraser() {
+            if (!isConnected) {
+                return;
+            }
+            
+            // 发送切换橡皮擦请求
+            socket.emit('toggle_eraser', {}, function(response) {
+                if (response.status === 'success') {
+                    eraserMode = response.enabled;
+                    
+                    // 更新橡皮擦按钮状态
+                    const eraserBtn = document.getElementById('eraser-btn');
+                    if (eraserMode) {
+                        eraserBtn.classList.add('active');
+                        eraserBtn.textContent = '切换画笔';
+                        document.getElementById('eraser-size-controls').style.display = 'flex';
+                        document.getElementById('brush-size').parentElement.style.display = 'none';
+                    } else {
+                        eraserBtn.classList.remove('active');
+                        eraserBtn.textContent = '橡皮擦';
+                        document.getElementById('eraser-size-controls').style.display = 'none';
+                        document.getElementById('brush-size').parentElement.style.display = 'flex';
+                    }
+                    
+                    updateStatus(eraserMode ? '橡皮擦模式' : '绘画模式');
+                }
+            });
+        }
+        
+        // 清空画布
+        function clearCanvas() {
+            if (!isConnected) {
+                return;
+            }
+            
+            if (confirm('确定要清空画布吗？')) {
+                socket.emit('clear_canvas', {}, function(response) {
+                    if (response.status === 'success') {
+                        console.log('画布已清空');
+                        updateStatus('画布已清空');
+                    }
+                });
+            }
+        }
+        
+        // 撤销绘画
+        function undoDrawing() {
+            if (!isConnected) {
+                return;
+            }
+            
+            socket.emit('undo_drawing', {}, function(response) {
+                if (response.status === 'success') {
+                    console.log('已撤销上一步操作');
+                    updateStatus('已撤销上一步操作');
+                } else {
+                    updateStatus('没有可撤销的操作');
+                }
+            });
+        }
+        
+        // 保存绘画
+        function saveDrawing() {
+            if (!isConnected) {
+                return;
+            }
+            
+            socket.emit('save_drawing', {}, function(response) {
+                if (response.status === 'success') {
+                    console.log('绘画已保存:', response.filepath);
+                    updateStatus('绘画已保存: ' + response.filepath);
+                    alert('绘画已保存: ' + response.filepath);
+                } else {
+                    updateStatus('保存绘画失败');
+                }
+            });
+        }
+        
+        // 设置颜色
+        function setColor(r, g, b) {
+            if (!isConnected) {
+                return;
+            }
+            
+            socket.emit('set_color', {r: r, g: g, b: b}, function(response) {
+                if (response.status === 'success') {
+                    console.log('颜色已设置:', r, g, b);
+                }
+            });
+        }
+        
+        // 设置画笔大小
+        function setBrushSize(size) {
+            if (!isConnected) {
+                return;
+            }
+            
+            socket.emit('set_brush_size', {size: size}, function(response) {
+                if (response.status === 'success') {
+                    console.log('画笔大小已设置:', size);
+                }
+            });
+        }
+        
+        // 设置橡皮擦大小
+        function setEraserSize(size) {
+            if (!isConnected) {
+                return;
+            }
+            
+            socket.emit('set_eraser_size', {size: size}, function(response) {
+                if (response.status === 'success') {
+                    console.log('橡皮擦大小已设置:', size);
+                }
+            });
+        }
+        
+        // 设置绘画手指
+        function setDrawingFinger(finger) {
+            if (!isConnected) {
+                return;
+            }
+            
+            socket.emit('set_drawing_finger', {finger: finger}, function(response) {
+                if (response.status === 'success') {
+                    console.log('绘画手指已设置:', finger);
+                    updateStatus(`已设置使用${getFingerName(finger)}绘画`);
+                } else {
+                    updateStatus('设置绘画手指失败');
+                }
+            });
+        }
+        
+        // 获取手指名称
+        function getFingerName(finger) {
+            const fingerNames = {
+                'thumb': '拇指',
+                'index': '食指',
+                'middle': '中指',
+                'ring': '无名指',
+                'pinky': '小指'
+            };
+            return fingerNames[finger] || finger;
+        }
+        
+        // 更新状态
+        function updateStatus(message) {
+            document.getElementById('drawing-status').textContent = message;
+        }
+    </script>
+</body>
+</html> 

@@ -15,6 +15,7 @@ from modules.stats import StatsTracker
 from modules.snake_game import SnakeGame
 from modules.keyboard_controller import KeyboardController
 from modules.gesture_config import GestureConfig
+from modules.drawing import DrawingCanvas
 
 # 加载环境变量
 load_dotenv()
@@ -54,6 +55,9 @@ keyboard_controller = KeyboardController()
 
 # 初始化手势配置
 gesture_config = GestureConfig()
+
+# 初始化绘画画布
+drawing_canvas = DrawingCanvas()
 
 # 在app.py顶部添加全局变量
 face_recognition_enabled = False
@@ -501,6 +505,188 @@ def reset_gesture_config():
             'status': 'error',
             'message': f'重置手势配置时出错: {str(e)}'
         }), 500
+
+@app.route('/drawing')
+def drawing_page():
+    """渲染绘画页面"""
+    return render_template('drawing.html')
+
+@socketio.on('request_drawing_frames')
+def handle_request_drawing_frames(data=None):
+    """处理客户端请求绘画帧"""
+    logger.info('开始发送绘画帧')
+    socketio.start_background_task(process_drawing_frames)
+
+def process_drawing_frames():
+    """处理绘画帧并发送到客户端"""
+    logger.info('绘画处理线程已启动')
+    frame_count = 0
+    error_count = 0
+    max_errors = 10  # 最大连续错误次数
+    
+    # 等待摄像头初始化完成
+    time.sleep(1.0)
+    
+    # 确保摄像头已启动
+    if not camera.is_running:
+        logger.warning('摄像头未运行，尝试启动')
+        if not camera.start():
+            logger.error('无法启动摄像头，退出绘画处理线程')
+            socketio.emit('camera_error', {'message': '无法启动摄像头'})
+            return
+    
+    while True:
+        try:
+            # 检查摄像头是否仍在运行
+            if not camera.is_running:
+                logger.warning('摄像头已停止运行，尝试重新启动')
+                if camera.start():
+                    logger.info('摄像头重新启动成功')
+                    time.sleep(1.0)  # 等待摄像头初始化
+                    continue
+                else:
+                    logger.error('摄像头重新启动失败，退出绘画处理线程')
+                    socketio.emit('camera_error', {'message': '摄像头已停止运行且无法重新启动'})
+                    break
+            
+            frame = camera.get_frame()
+            if frame is not None:
+                try:
+                    # 处理帧并识别手势
+                    processed_frame, hand_landmarks = gesture_recognizer.process_frame_for_drawing(frame)
+                    
+                    # 处理绘画
+                    canvas, is_drawing = drawing_canvas.process_hand_landmarks(
+                        hand_landmarks, 
+                        frame.shape[1], 
+                        frame.shape[0]
+                    )
+                    
+                    # 将画布叠加到视频帧上
+                    combined_frame = drawing_canvas.overlay_on_frame(processed_frame)
+                    
+                    # 将画布编码为JPEG
+                    _, canvas_buffer = cv2.imencode('.jpg', canvas, [cv2.IMWRITE_JPEG_QUALITY, 90])
+                    canvas_bytes = canvas_buffer.tobytes()
+                    canvas_base64 = base64.b64encode(canvas_bytes).decode('utf-8')
+                    
+                    # 将摄像头画面编码为JPEG
+                    _, camera_buffer = cv2.imencode('.jpg', combined_frame, [cv2.IMWRITE_JPEG_QUALITY, 70])
+                    camera_bytes = camera_buffer.tobytes()
+                    camera_base64 = base64.b64encode(camera_bytes).decode('utf-8')
+                    
+                    # 发送到客户端
+                    socketio.emit('drawing_frame', {
+                        'canvas_image': f'data:image/jpeg;base64,{canvas_base64}',
+                        'camera_image': f'data:image/jpeg;base64,{camera_base64}',
+                        'is_drawing': is_drawing
+                    })
+                    
+                    # 重置错误计数
+                    error_count = 0
+                    
+                    frame_count += 1
+                    if frame_count % 100 == 0:  # 每100帧记录一次
+                        logger.info(f'已处理 {frame_count} 帧绘画')
+                except Exception as e:
+                    logger.error(f'处理绘画帧时出错: {str(e)}')
+                    error_count += 1
+            else:
+                logger.warning('获取视频帧失败')
+                error_count += 1
+                
+                # 如果连续错误太多，尝试重新启动摄像头
+                if error_count == 5:
+                    logger.warning('尝试重新启动摄像头')
+                    camera.stop()
+                    time.sleep(1.0)  # 等待资源释放
+                    if camera.start():
+                        logger.info('摄像头重新启动成功')
+                        error_count = 0  # 重置错误计数
+                        time.sleep(1.0)  # 等待摄像头初始化
+                        continue
+                
+                # 如果连续错误太多，可能摄像头已断开
+                if error_count > max_errors:
+                    logger.error(f'连续 {max_errors} 次获取视频帧失败，停止处理')
+                    socketio.emit('camera_error', {'message': '摄像头可能已断开连接'})
+                    break
+                
+                socketio.sleep(0.1)  # 如果获取帧失败，稍微等待长一点
+                continue
+        except Exception as e:
+            logger.error(f'处理绘画帧时出错: {str(e)}')
+            error_count += 1
+            if error_count > max_errors:
+                logger.error(f'连续 {max_errors} 次处理错误，停止处理')
+                socketio.emit('camera_error', {'message': '绘画处理出错'})
+                break
+            socketio.sleep(0.1)
+        
+        # 短暂休眠以减少CPU使用率
+        socketio.sleep(0.03)  # 约30 FPS
+
+@socketio.on('toggle_eraser')
+def handle_toggle_eraser(data=None):
+    """切换橡皮擦模式"""
+    enabled = drawing_canvas.toggle_eraser()
+    logger.info(f'橡皮擦模式: {"开启" if enabled else "关闭"}')
+    return {'status': 'success', 'enabled': enabled}
+
+@socketio.on('clear_canvas')
+def handle_clear_canvas(data=None):
+    """清空画布"""
+    drawing_canvas.clear()
+    logger.info('画布已清空')
+    return {'status': 'success'}
+
+@socketio.on('undo_drawing')
+def handle_undo_drawing(data=None):
+    """撤销绘画"""
+    success = drawing_canvas.undo()
+    logger.info('撤销绘画操作')
+    return {'status': 'success' if success else 'error'}
+
+@socketio.on('save_drawing')
+def handle_save_drawing(data=None):
+    """保存绘画"""
+    filepath = drawing_canvas.save_canvas()
+    logger.info(f'绘画已保存到: {filepath}')
+    return {'status': 'success', 'filepath': filepath}
+
+@socketio.on('set_color')
+def handle_set_color(data):
+    """设置绘画颜色"""
+    r = data.get('r', 0)
+    g = data.get('g', 0)
+    b = data.get('b', 0)
+    drawing_canvas.set_color((b, g, r))  # OpenCV使用BGR顺序
+    logger.info(f'设置绘画颜色: ({r}, {g}, {b})')
+    return {'status': 'success'}
+
+@socketio.on('set_brush_size')
+def handle_set_brush_size(data):
+    """设置画笔大小"""
+    size = data.get('size', 5)
+    drawing_canvas.set_brush_size(size)
+    logger.info(f'设置画笔大小: {size}')
+    return {'status': 'success'}
+
+@socketio.on('set_eraser_size')
+def handle_set_eraser_size(data):
+    """设置橡皮擦大小"""
+    size = data.get('size', 20)
+    drawing_canvas.set_eraser_size(size)
+    logger.info(f'设置橡皮擦大小: {size}')
+    return {'status': 'success'}
+
+@socketio.on('set_drawing_finger')
+def handle_set_drawing_finger(data):
+    """设置绘画手指"""
+    finger = data.get('finger', 'index')
+    success = drawing_canvas.set_drawing_finger(finger)
+    logger.info(f'设置绘画手指: {finger}')
+    return {'status': 'success' if success else 'error'}
 
 @app.errorhandler(Exception)
 def handle_error(e):

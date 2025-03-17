@@ -457,4 +457,48 @@ class GestureRecognizer:
                 self.hands.close()
         except Exception as e:
             logger.error(f"释放手势识别资源时出错: {str(e)}")
-        logger.info("手势识别资源已释放") 
+        logger.info("手势识别资源已释放")
+    
+    def process_frame_for_drawing(self, frame):
+        """
+        处理视频帧，用于绘画功能
+        
+        @param {numpy.ndarray} frame - 输入视频帧
+        @returns {tuple} 处理后的视频帧和手部关键点
+        """
+        if frame is None:
+            logger.warning("输入帧为空")
+            return None, None
+        
+        try:
+            # 复制输入帧
+            output_frame = frame.copy()
+            
+            # 转换为RGB（MediaPipe需要RGB输入）
+            rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            
+            # 处理图像
+            results = self.hands.process(rgb_frame)
+            
+            # 初始化手部关键点
+            hand_landmarks = None
+            
+            # 如果检测到手
+            if results.multi_hand_landmarks:
+                # 只处理第一只手
+                hand_landmarks = results.multi_hand_landmarks[0].landmark
+                
+                # 绘制手部关键点和连接线
+                self.mp_drawing.draw_landmarks(
+                    output_frame,
+                    results.multi_hand_landmarks[0],
+                    self.mp_hands.HAND_CONNECTIONS,
+                    self.mp_drawing_styles.get_default_hand_landmarks_style(),
+                    self.mp_drawing_styles.get_default_hand_connections_style()
+                )
+            
+            return output_frame, hand_landmarks
+        
+        except Exception as e:
+            logger.error(f"处理视频帧时出错: {str(e)}")
+            return frame, None 

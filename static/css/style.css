@@ -195,6 +195,17 @@ footer {
     background-color: #7b1fa2;
 }
 
+.drawing-btn {
+    background-color: #e91e63;
+    color: white;
+    text-decoration: none;
+    text-align: center;
+}
+
+.drawing-btn:hover {
+    background-color: #c2185b;
+}
+
 .snake-btn {
     background-color: #ff9800;
     color: white;
