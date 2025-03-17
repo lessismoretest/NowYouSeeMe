@@ -1,4 +1,4 @@
-from flask import Flask, render_template, Response, jsonify
+from flask import Flask, render_template, Response, jsonify, request
 from flask_socketio import SocketIO
 import cv2
 import base64
@@ -14,6 +14,7 @@ import time
 from modules.stats import StatsTracker
 from modules.snake_game import SnakeGame
 from modules.keyboard_controller import KeyboardController
+from modules.gesture_config import GestureConfig
 
 # 加载环境变量
 load_dotenv()
@@ -50,6 +51,9 @@ stats_tracker = StatsTracker()
 
 # 初始化键盘控制器
 keyboard_controller = KeyboardController()
+
+# 初始化手势配置
+gesture_config = GestureConfig()
 
 # 在app.py顶部添加全局变量
 face_recognition_enabled = False
@@ -411,6 +415,92 @@ def handle_toggle_snake_sound(data=None):
     enabled = snake_game.sound_manager.toggle()
     logger.info(f'贪吃蛇游戏音效状态: {"开启" if enabled else "关闭"}')
     return {'status': 'success', 'enabled': enabled}
+
+@app.route('/gesture-config')
+def gesture_config_page():
+    """渲染手势配置页面"""
+    return render_template('gesture_config.html')
+
+@app.route('/api/gesture-config', methods=['GET'])
+def get_gesture_config():
+    """获取手势配置"""
+    configs = gesture_config.get_all_configs()
+    available_actions = gesture_config.get_available_actions()
+    available_shortcuts = gesture_config.get_available_shortcuts()
+    
+    return jsonify({
+        'status': 'success',
+        'configs': configs,
+        'available_actions': available_actions,
+        'available_shortcuts': available_shortcuts
+    })
+
+@app.route('/api/gesture-config/<gesture>', methods=['GET'])
+def get_specific_gesture_config(gesture):
+    """获取特定手势的配置"""
+    config = gesture_config.get_gesture_config(gesture)
+    
+    return jsonify({
+        'status': 'success',
+        'config': config
+    })
+
+@app.route('/api/gesture-config/<gesture>', methods=['POST'])
+def update_gesture_config(gesture):
+    """更新手势配置"""
+    try:
+        data = request.json
+        action = data.get('action')
+        params = data.get('params', {})
+        description = data.get('description')
+        
+        success = gesture_config.set_gesture_config(gesture, action, params, description)
+        
+        if success:
+            # 更新键盘控制器的手势配置
+            keyboard_controller.gesture_config = gesture_config
+            
+            return jsonify({
+                'status': 'success',
+                'message': f'手势 {gesture} 配置已更新'
+            })
+        else:
+            return jsonify({
+                'status': 'error',
+                'message': f'更新手势 {gesture} 配置失败'
+            }), 400
+    except Exception as e:
+        logger.error(f"更新手势配置时出错: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'message': f'更新手势配置时出错: {str(e)}'
+        }), 500
+
+@app.route('/api/gesture-config/reset', methods=['POST'])
+def reset_gesture_config():
+    """重置手势配置为默认值"""
+    try:
+        success = gesture_config.reset_to_default()
+        
+        if success:
+            # 更新键盘控制器的手势配置
+            keyboard_controller.gesture_config = gesture_config
+            
+            return jsonify({
+                'status': 'success',
+                'message': '手势配置已重置为默认值'
+            })
+        else:
+            return jsonify({
+                'status': 'error',
+                'message': '重置手势配置失败'
+            }), 400
+    except Exception as e:
+        logger.error(f"重置手势配置时出错: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'message': f'重置手势配置时出错: {str(e)}'
+        }), 500
 
 @app.errorhandler(Exception)
 def handle_error(e):

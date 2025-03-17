@@ -4,6 +4,7 @@ import os
 from datetime import datetime
 from rich.logging import RichHandler
 import time
+from modules.gesture_config import GestureConfig
 
 # 设置日志
 if not os.path.exists('logs'):
@@ -43,6 +44,9 @@ class KeyboardController:
         # 快捷键冷却时间（秒）
         self.cooldown = 0.5
         self.last_shortcut_time = {}
+        
+        # 初始化手势配置
+        self.gesture_config = GestureConfig()
         
         logger.info("键盘控制器初始化完成")
     
@@ -90,21 +94,100 @@ class KeyboardController:
     
     def handle_gesture(self, gesture):
         """
-        处理手势并执行对应的快捷键
+        处理手势并执行对应的功能
         
         @param {str} gesture - 手势名称
         @returns {bool} 是否成功执行
         """
-        # 手势到快捷键的映射
-        gesture_to_shortcut = {
-            "zoom_in": "zoom_in",
-            "zoom_out": "zoom_out",
-            # 可以添加更多手势到快捷键的映射
-        }
+        if not gesture:
+            return False
         
-        if gesture in gesture_to_shortcut:
-            shortcut_name = gesture_to_shortcut[gesture]
-            return self.execute_shortcut(shortcut_name)
+        # 获取手势配置
+        gesture_config = self.gesture_config.get_gesture_config(gesture)
+        action = gesture_config.get("action", "none")
+        params = gesture_config.get("params", {})
+        
+        # 根据动作类型执行不同的功能
+        if action == "none":
+            logger.debug(f"手势 {gesture} 配置为无动作")
+            return False
+        elif action == "keyboard_shortcut":
+            shortcut = params.get("shortcut")
+            if shortcut:
+                return self.execute_shortcut(shortcut)
+            else:
+                logger.warning(f"手势 {gesture} 的快捷键参数缺失")
+                return False
+        elif action == "media_control":
+            # 媒体控制功能
+            media_action = params.get("media_action")
+            if media_action == "play_pause":
+                pyautogui.press("playpause")
+                logger.info("执行媒体控制: 播放/暂停")
+                return True
+            elif media_action == "volume_up":
+                pyautogui.press("volumeup")
+                logger.info("执行媒体控制: 音量增加")
+                return True
+            elif media_action == "volume_down":
+                pyautogui.press("volumedown")
+                logger.info("执行媒体控制: 音量减少")
+                return True
+            elif media_action == "mute":
+                pyautogui.press("volumemute")
+                logger.info("执行媒体控制: 静音")
+                return True
+            elif media_action == "next_track":
+                pyautogui.press("nexttrack")
+                logger.info("执行媒体控制: 下一曲")
+                return True
+            elif media_action == "prev_track":
+                pyautogui.press("prevtrack")
+                logger.info("执行媒体控制: 上一曲")
+                return True
+            else:
+                logger.warning(f"未知的媒体控制动作: {media_action}")
+                return False
+        elif action == "app_control":
+            # 应用控制功能
+            app_action = params.get("app_action")
+            if app_action == "switch_app":
+                pyautogui.hotkey("command", "tab")
+                logger.info("执行应用控制: 切换应用")
+                return True
+            elif app_action == "new_tab":
+                pyautogui.hotkey("command", "t")
+                logger.info("执行应用控制: 新建标签页")
+                return True
+            elif app_action == "close_tab":
+                pyautogui.hotkey("command", "w")
+                logger.info("执行应用控制: 关闭标签页")
+                return True
+            else:
+                logger.warning(f"未知的应用控制动作: {app_action}")
+                return False
+        elif action == "custom_function":
+            # 自定义函数功能
+            function_name = params.get("function")
+            if function_name == "screenshot":
+                pyautogui.hotkey("command", "shift", "3")
+                logger.info("执行自定义函数: 截屏")
+                return True
+            elif function_name == "screen_recording":
+                pyautogui.hotkey("command", "shift", "5")
+                logger.info("执行自定义函数: 屏幕录制")
+                return True
+            else:
+                logger.warning(f"未知的自定义函数: {function_name}")
+                return False
         else:
-            logger.debug(f"手势 {gesture} 没有对应的快捷键")
-            return False 
+            logger.warning(f"未知的动作类型: {action}")
+            return False
+    
+    def get_gesture_config(self):
+        """
+        获取手势配置
+        
+        @returns {GestureConfig} 手势配置对象
+        """
+        return self.gesture_config 

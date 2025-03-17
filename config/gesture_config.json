@@ -1,0 +1,43 @@
+{
+    "fist": {
+        "action": "app_control",
+        "params": {
+            "app_action": "switch_app"
+        },
+        "description": "应用控制"
+    },
+    "palm": {
+        "action": "none",
+        "params": {},
+        "description": "无动作"
+    },
+    "thumb_up": {
+        "action": "none",
+        "params": {},
+        "description": "无动作"
+    },
+    "peace": {
+        "action": "none",
+        "params": {},
+        "description": "无动作"
+    },
+    "pointing": {
+        "action": "none",
+        "params": {},
+        "description": "无动作"
+    },
+    "zoom_in": {
+        "action": "keyboard_shortcut",
+        "params": {
+            "shortcut": "zoom_in"
+        },
+        "description": "放大 (Command +)"
+    },
+    "zoom_out": {
+        "action": "keyboard_shortcut",
+        "params": {
+            "shortcut": "zoom_out"
+        },
+        "description": "缩小 (Command -)"
+    }
+}

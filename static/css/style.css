@@ -180,15 +180,25 @@ footer {
 }
 
 .keyboard-btn.active {
-    background-color: #7b1fa2;
+    background-color: #4CAF50;
     color: white;
 }
 
-.snake-btn {
-    background-color: #4caf50;
+.config-btn {
+    background-color: #9c27b0;
     color: white;
     text-decoration: none;
-    display: inline-block;
+    text-align: center;
+}
+
+.config-btn:hover {
+    background-color: #7b1fa2;
+}
+
+.snake-btn {
+    background-color: #ff9800;
+    color: white;
+    text-decoration: none;
     text-align: center;
 }
 
